@@ -1,5 +1,16 @@
 # Quick Deploy to Render.com (FREE)
 
+## 🔒 Security First
+
+**CRITICAL**: Your `GEMINI_API_KEY` is sensitive. Never commit it to GitHub or share it publicly.
+
+- ✅ API key is already excluded by `.gitignore` (.env file)
+- ✅ Only add API key as environment variable on Render (never in code)
+- ✅ Rotate API key every 90 days: https://aistudio.google.com/app/apikey
+- 📖 Read full security guide: `SECURITY.md`
+
+---
+
 ## Step 1: Sign Up (2 minutes)
 1. Go to https://render.com
 2. Click "Get Started for Free"
@@ -17,6 +28,7 @@
      - Click "Add Environment Variable"
      - Key: `GEMINI_API_KEY`
      - Value: [paste your actual API key from .env file]
+     - ⚠️ **IMPORTANT**: This stays on Render only, never in GitHub
 
 5. Click "Create Web Service"
 
@@ -76,7 +88,56 @@ Railway free tier: $5 credit/month (plenty for portfolio)
 
 1. **Test thoroughly** on desktop and mobile
 2. **Update README.md** with live demo link
-3. **Add to LinkedIn/Resume**
-4. **Share with recruiters**
+3. **Update CORS settings** in `app/middleware/settings/settings.py`:
+   ```python
+   CORS_ORIGINS = ["https://your-actual-url.onrender.com"]
+   ```
+   Then git push to redeploy.
+4. **Add to LinkedIn/Resume**
+5. **Share with recruiters**
 
 Your live URL is the best portfolio piece! 🎉
+
+---
+
+## 🔒 Post-Deployment Security
+
+### Verify Security Features
+
+1. **Test rate limiting**:
+   - Try sending 15+ rapid requests (should get 429 error after 10th)
+
+2. **Check security headers**:
+   - Visit: https://securityheaders.com
+   - Enter your Render URL
+   - Should see security headers enabled
+
+3. **Monitor API usage**:
+   - Go to https://aistudio.google.com/app/apikey
+   - Check Gemini API usage dashboard
+   - Watch for unexpected spikes
+
+4. **Rotate API key** (recommended every 90 days):
+   - Create new key at https://aistudio.google.com/app/apikey
+   - Update environment variable on Render
+   - Delete old key
+
+### Security Checklist
+
+- [ ] API key set as environment variable (not in code)
+- [ ] `.env` file is NOT in your GitHub repo
+- [ ] CORS origins updated to production URL
+- [ ] Tested rate limiting works
+- [ ] Verified HTTPS is enforced
+- [ ] Bookmarked API key rotation date (90 days from now)
+
+### Built-in Security Features
+
+Your app includes:
+- ✅ Rate limiting (10 chat/min, 5 uploads/min)
+- ✅ Input sanitization (XSS protection)
+- ✅ File upload validation (type, size, filename)
+- ✅ Security headers (HSTS, CSP, X-Frame-Options)
+- ✅ HTTPS only (enforced by Render)
+
+📖 **Read the full security guide**: `SECURITY.md`

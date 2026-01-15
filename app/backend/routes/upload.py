@@ -1,22 +1,42 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Request
 from pathlib import Path
 import uuid
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from app.backend.models.upload import FileUploadResponse
 from app.backend.services.document_processor import process_uploaded_file, save_uploaded_file
 from app.backend.services.embedding_service import generate_embeddings_batch
 from app.backend.services.vector_store import vector_store
 from app.middleware.settings.settings import config
+from app.middleware.security import validate_filename
 
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
 
 
 @router.post("/", response_model=FileUploadResponse)
-async def upload_file(file: UploadFile = File(...)):
+@limiter.limit(config.RATE_LIMIT_UPLOAD)
+async def upload_file(file: UploadFile = File(...), request: Request = None):
     """
     Upload and process a document for RAG.
 
     Supports: PDF, TXT, DOCX files (max 10MB)
+
+    Rate limit: 5 uploads per minute per IP
+
+    Security:
+    - Filename validation (no path traversal)
+    - File type validation
+    - File size validation
+    - Content extraction only (no execution)
     """
+    # Validate filename for security
+    if not validate_filename(file.filename):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid filename. Filename must not contain path separators or special characters."
+        )
+
     # Validate file extension
     file_extension = Path(file.filename).suffix.lower()
     if file_extension not in config.ALLOWED_FILE_TYPES:

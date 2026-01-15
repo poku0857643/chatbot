@@ -17,6 +17,7 @@
 - **Real-Time Streaming**: Sub-100ms first token latency with Server-Sent Events
 - **Smart Document Search**: FAISS vector database with semantic similarity
 - **Production Ready**: Comprehensive error handling, validation, and logging
+- **Secure by Design**: Rate limiting, input sanitization, security headers
 - **Modern Stack**: FastAPI + React + Vite with hot module replacement
 - **Mobile First**: Responsive design tested on iOS and Android
 
@@ -28,6 +29,7 @@
 - 📱 **Responsive Design**: Mobile-first UI that works on all devices
 - ⚡ **Real-Time Streaming**: Word-by-word response display via Server-Sent Events
 - 🎨 **Markdown Support**: Formatted AI responses with code highlighting
+- 🔒 **Security**: Rate limiting, input sanitization, file validation, HTTPS enforcement
 
 ## Architecture
 
@@ -198,19 +200,50 @@ Request body:
 }
 ```
 
+## Security
+
+Built-in security features:
+
+- ✅ **Rate Limiting**: 10 chat requests/minute, 5 uploads/minute per IP
+- ✅ **Input Sanitization**: XSS prevention with HTML/script tag removal
+- ✅ **File Validation**: Extension whitelist, size limits, path traversal protection
+- ✅ **Security Headers**: HSTS, CSP, X-Frame-Options, X-Content-Type-Options
+- ✅ **HTTPS Enforcement**: Automatic on deployment platforms
+- ✅ **API Key Protection**: Environment variables only, never in code
+
+**Important**:
+- Never commit `.env` file (already in `.gitignore`)
+- Rotate API keys every 90 days
+- Monitor API usage at https://aistudio.google.com/app/apikey
+
+📖 **Read the full security guide**: [SECURITY.md](SECURITY.md)
+
 ## Configuration
 
 ### Backend Settings (`app/middleware/settings/settings.py`)
 
+**AI Configuration:**
 - `GEMINI_API_KEY`: API key (from .env)
 - `GEMINI_MODEL`: gemini-2.5-flash
 - `GEMINI_EMBEDDING_MODEL`: models/text-embedding-004
-- `CORS_ORIGINS`: Allowed origins for CORS
+
+**Security Configuration:**
+- `RATE_LIMIT_CHAT`: "10/minute"
+- `RATE_LIMIT_UPLOAD`: "5/minute"
+- `MAX_MESSAGE_LENGTH`: 4000 characters
+- `MAX_CONVERSATION_HISTORY`: 20 messages
+- `ENABLE_SANITIZATION`: true
+
+**RAG Configuration:**
 - `UPLOAD_DIR`: uploads/
 - `MAX_UPLOAD_SIZE_MB`: 10
+- `ALLOWED_FILE_TYPES`: [".pdf", ".txt", ".docx"]
 - `CHUNK_SIZE`: 500 words
 - `CHUNK_OVERLAP`: 50 words
 - `TOP_K_RESULTS`: 5
+
+**CORS Configuration:**
+- `CORS_ORIGINS`: Allowed origins for CORS
 
 ### Gemini API Free Tier Limits
 
@@ -228,7 +261,7 @@ Request body:
 
 ### Performance
 - [ ] Add Redis caching for embeddings
-- [ ] Implement request rate limiting
+- [x] Implement request rate limiting ✅
 - [ ] Add database for conversation persistence
 - [ ] Optimize chunking strategy (sliding window)
 
