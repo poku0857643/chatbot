@@ -185,12 +185,14 @@ http://<your-ip>:8000
 - `POST /api/upload` - Upload document for RAG
   - Accepts: PDF, TXT, DOCX
   - Max size: 10MB
+  - Limits: 5/minute, 20/day per IP
   - Returns: Chunk count and file ID
 
 ### Chat
 - `POST /api/chat/stream` - Streaming chat (SSE)
 - `POST /api/chat` - Non-streaming chat
-  
+  - Limits: 10/minute, 100/day, 10K tokens/day per IP
+
 Request body:
 ```json
 {
@@ -200,16 +202,25 @@ Request body:
 }
 ```
 
+### Usage
+- `GET /api/usage` - Check your current quota usage
+  - Returns: Daily requests, tokens used, remaining limits
+  - No authentication required (based on your IP)
+
 ## Security
 
 Built-in security features:
 
 - ✅ **Rate Limiting**: 10 chat requests/minute, 5 uploads/minute per IP
+- ✅ **Daily Quotas**: 100 chats/day, 20 uploads/day, 10K tokens/day per IP
+- ✅ **Burst Detection**: Blocks suspicious rapid-fire requests (bot protection)
+- ✅ **Cost Protection**: Token estimation and limits to prevent API abuse
 - ✅ **Input Sanitization**: XSS prevention with HTML/script tag removal
 - ✅ **File Validation**: Extension whitelist, size limits, path traversal protection
 - ✅ **Security Headers**: HSTS, CSP, X-Frame-Options, X-Content-Type-Options
 - ✅ **HTTPS Enforcement**: Automatic on deployment platforms
 - ✅ **API Key Protection**: Environment variables only, never in code
+- ✅ **Usage Monitoring**: Real-time endpoint to check quota usage
 
 **Important**:
 - Never commit `.env` file (already in `.gitignore`)

@@ -9,6 +9,7 @@ from app.backend.services.embedding_service import generate_embeddings_batch
 from app.backend.services.vector_store import vector_store
 from app.middleware.settings.settings import config
 from app.middleware.security import validate_filename
+from app.middleware.cost_protection import check_cost_limits, record_usage
 
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
@@ -22,7 +23,10 @@ async def upload_file(file: UploadFile = File(...), request: Request = None):
 
     Supports: PDF, TXT, DOCX files (max 10MB)
 
-    Rate limit: 5 uploads per minute per IP
+    Limits:
+    - Rate: 5 uploads per minute per IP
+    - Daily: 20 uploads per day per IP
+    - Burst: Max 5 requests per 10 seconds
 
     Security:
     - Filename validation (no path traversal)
@@ -30,6 +34,12 @@ async def upload_file(file: UploadFile = File(...), request: Request = None):
     - File size validation
     - Content extraction only (no execution)
     """
+    # Check cost protection limits
+    client_ip = await check_cost_limits(
+        request=request,
+        endpoint="upload"
+    )
+
     # Validate filename for security
     if not validate_filename(file.filename):
         raise HTTPException(
@@ -83,6 +93,9 @@ async def upload_file(file: UploadFile = File(...), request: Request = None):
 
         # Save file to disk
         await save_uploaded_file(file, file_id)
+
+        # Record usage (uploads use embedding API but don't count toward chat tokens)
+        record_usage(client_ip, "upload", 0)
 
         return FileUploadResponse(
             filename=file.filename,

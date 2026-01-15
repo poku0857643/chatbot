@@ -88,6 +88,94 @@ CORS_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
 CORS_ORIGINS = ["https://rag-chatbot-xxxx.onrender.com"]
 ```
 
+### 6. Cost Protection & API Abuse Prevention ⭐ NEW
+
+**Protection against**: API quota exhaustion, cost overruns, distributed attacks
+
+This is the **most important security feature** for public deployment. Even with rate limiting, attackers can abuse your Gemini API by:
+- Using multiple IPs (VPNs, proxies, botnets)
+- Slowly draining quota over time
+- Distributed attacks from multiple sources
+
+**Implemented protections**:
+
+#### Daily Quotas Per IP
+- ✅ **Chat requests**: 100 per day per IP
+- ✅ **File uploads**: 20 per day per IP
+- ✅ **Token usage**: 10,000 tokens per day per IP (~10-20 conversations)
+- ✅ Automatic reset at midnight UTC
+
+**Configuration**:
+```python
+DAILY_CHAT_LIMIT_PER_IP = 100
+DAILY_UPLOAD_LIMIT_PER_IP = 20
+DAILY_TOKEN_LIMIT_PER_IP = 10000
+```
+
+#### Burst Detection
+- ✅ **10-second window**: Max 5 requests
+- ✅ **1-minute window**: Max 20 requests
+- ✅ Automatic IP blocking on suspicious patterns
+
+#### Token Cost Estimation
+- ✅ Estimates tokens before making API call
+- ✅ Blocks request if daily token limit would be exceeded
+- ✅ Tracks both input and output tokens
+
+**Check your usage**:
+```bash
+curl http://localhost:8000/api/usage
+```
+
+Response:
+```json
+{
+  "client_ip": "203.0.113.42",
+  "daily_chat_requests": 15,
+  "daily_upload_requests": 3,
+  "daily_tokens_used": 2450,
+  "limits": {
+    "chat_requests_per_day": 100,
+    "upload_requests_per_day": 20,
+    "tokens_per_day": 10000
+  },
+  "remaining": {
+    "chat_requests": 85,
+    "upload_requests": 17,
+    "tokens": 7550
+  }
+}
+```
+
+**Error response when limit exceeded**:
+```json
+{
+  "detail": "Daily limit exceeded. You can make 100 chat requests per day. Try again tomorrow.",
+  "headers": {"Retry-After": "43200"}
+}
+```
+
+**Cost calculation example**:
+
+Gemini free tier: **1,000,000 tokens/day total**
+
+With 10,000 tokens/day per IP:
+- ✅ Supports ~100 concurrent users per day
+- ✅ Each user can have ~10-20 conversations
+- ✅ Protection against single user exhausting quota
+
+**For production**:
+1. Monitor actual usage patterns
+2. Adjust limits based on traffic
+3. Consider upgrading to Redis for distributed tracking:
+```python
+# Redis-based tracking (for multiple server instances)
+import redis
+r = redis.Redis(host='localhost', port=6379)
+r.incr(f"daily:{ip}:{date}")
+r.expire(f"daily:{ip}:{date}", 86400)
+```
+
 ---
 
 ## 🔑 API Key Security Best Practices
@@ -182,6 +270,123 @@ Your Gemini API key (`AIzaSyD3Vr70iolk-cOmdMRBwzAov9kxjadhaH4`) is like a passwo
    - Update Render environment variable
    - Update local `.env` file
    - Update any other environments
+
+---
+
+## 📊 Monitoring & Cost Control
+
+### Real-Time Usage Monitoring
+
+**Check usage via API**:
+```bash
+# Your current usage
+curl https://your-app.onrender.com/api/usage
+
+# Example response
+{
+  "daily_chat_requests": 42,
+  "daily_tokens_used": 5230,
+  "remaining": {
+    "chat_requests": 58,
+    "tokens": 4770
+  }
+}
+```
+
+**Add usage display to your frontend** (optional):
+```javascript
+// In React component
+const [usage, setUsage] = useState(null);
+
+useEffect(() => {
+  fetch('/api/usage')
+    .then(res => res.json())
+    .then(data => setUsage(data));
+}, []);
+
+// Display: "You have {usage.remaining.chat_requests} requests left today"
+```
+
+### Gemini API Usage Dashboard
+
+Monitor your overall API usage at: https://aistudio.google.com/app/apikey
+
+**What to watch**:
+- Daily request count (should not spike unexpectedly)
+- Token usage trends
+- Error rates (high errors = potential attack)
+
+**Set up alerts** (manual):
+1. Check dashboard daily for first week
+2. Note normal usage patterns
+3. Watch for 2-3x spikes (indicates abuse)
+
+### Cost Protection Configuration Guide
+
+**For portfolio/demo apps** (current settings):
+```python
+DAILY_CHAT_LIMIT_PER_IP = 100        # Allows 10-20 users/day
+DAILY_UPLOAD_LIMIT_PER_IP = 20       # Reasonable for demos
+DAILY_TOKEN_LIMIT_PER_IP = 10000     # ~10-20 conversations
+```
+
+**For production apps** (stricter):
+```python
+DAILY_CHAT_LIMIT_PER_IP = 50         # Tighter control
+DAILY_UPLOAD_LIMIT_PER_IP = 10       # Limit document uploads
+DAILY_TOKEN_LIMIT_PER_IP = 5000      # ~5-10 conversations
+RATE_LIMIT_CHAT = "5/minute"         # Slower rate
+```
+
+**For high-traffic apps** (with authentication):
+```python
+# Remove IP-based limits, use user-based limits instead
+# Require login for API access
+# Track usage per user ID, not IP
+# Consider paid Gemini API tier
+```
+
+### What to Do If You See Abuse
+
+**Signs of abuse**:
+- Sudden spike in requests (10x normal)
+- Same IP hitting daily limit repeatedly
+- Multiple IPs from same region/pattern
+- Gemini quota exhausted unexpectedly
+
+**Immediate actions**:
+1. **Check `/api/usage` endpoint** - Which IPs are using the most?
+2. **Tighten limits temporarily**:
+   ```python
+   DAILY_CHAT_LIMIT_PER_IP = 20  # Reduce from 100
+   DAILY_TOKEN_LIMIT_PER_IP = 2000  # Reduce from 10000
+   ```
+3. **Add IP blocklist** (if specific IPs abusing):
+   ```python
+   # In main.py
+   BLOCKED_IPS = ["1.2.3.4", "5.6.7.8"]
+
+   @app.middleware("http")
+   async def block_ips(request: Request, call_next):
+       if request.client.host in BLOCKED_IPS:
+           return JSONResponse({"detail": "Blocked"}, status_code=403)
+       return await call_next(request)
+   ```
+4. **Rotate API key** if quota exhausted
+5. **Consider adding CAPTCHA** for public access
+
+### Estimated Costs (If You Upgrade from Free Tier)
+
+Gemini API pricing (as of 2026):
+- **Free tier**: 1M tokens/day, 15 RPM
+- **Paid tier**: ~$0.00025 per 1K tokens
+
+With current protection (10K tokens/IP/day):
+- 100 users/day = 1M tokens = **FREE**
+- 1,000 users/day = 10M tokens = **~$2.50/day** (~$75/month)
+- 10,000 users/day = 100M tokens = **~$25/day** (~$750/month)
+
+**Recommendation**: Keep free tier limits until you have 50+ daily users, then consider upgrade.
 
 ---
 

@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     MAX_CONVERSATION_HISTORY: int = 20  # Max messages to keep in history
     ENABLE_SANITIZATION: bool = True  # Enable HTML/script sanitization
 
+    # Cost Protection (Daily Limits Per IP)
+    DAILY_CHAT_LIMIT_PER_IP: int = 100  # Max chat requests per day per IP
+    DAILY_UPLOAD_LIMIT_PER_IP: int = 20  # Max uploads per day per IP
+    DAILY_TOKEN_LIMIT_PER_IP: int = 10000  # Max tokens per day per IP (~10-20 conversations)
+
     model_config = SettingsConfigDict(
         env_file=Path(__file__).parent.parent.parent.parent / '.env',
         env_file_encoding='utf-8'
